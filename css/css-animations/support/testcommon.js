@@ -259,3 +259,14 @@ async function waitForAnimationReadyToRestyle(aAnimation) {
     await waitForNextFrame();
   }
 }
+
+// Allow implementations to substitute an alternative method for comparing
+// times based on their precision requirements.
+if (!window.assert_times_equal) {
+  // The recommended minimum precision to use for time values[1].
+  // https://www.w3.org/TR/web-animations/#precision-of-time-values
+  const TIME_PRECISION = 0.0005; // ms
+  window.assert_times_equal = (actual, expected, description) => {
+    assert_approx_equals(actual, expected, TIME_PRECISION * 2, description);
+  };
+}
