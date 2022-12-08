@@ -23,6 +23,36 @@ function define_tests() {
       "X448": new Uint8Array([240, 246, 197, 241, 127, 148, 244, 41, 30, 171, 113, 120, 134, 109, 55, 236, 137, 6, 221, 108, 81, 65, 67, 220, 133, 190, 124, 242, 141, 239, 243, 155, 114, 110, 15, 109, 207, 129, 14, 181, 148, 220, 169, 123, 72, 130, 189, 68, 196, 62, 167, 220, 103, 244, 154, 78])
   };
 
+
+  // Ensure the X25519 function performs checks agains the all-zero value results.
+  // https://www.rfc-editor.org/rfc/rfc7748#section-6.1
+  // TODO: Add a small order point vector for X448.
+  var kSmallOrderPoint = {
+      "X25519": new Uint8Array([48, 42, 48, 5, 6, 3, 43, 101, 110, 3, 33, 0, 224, 235, 122, 124, 59, 65, 184, 174, 22, 86, 227, 250, 241, 159, 196, 106, 218, 9, 141, 235, 156, 50, 177, 253, 134, 98, 5, 22, 95, 73, 184, 0]),
+  };
+  var kAllZeros = new Uint8Array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+  Object.keys(kSmallOrderPoint).forEach(function(algorithmName) {
+      promise_test(async() => {
+          let derived, privateKey, publicKey;
+          try {
+              privateKey = await subtle.importKey("pkcs8", pkcs8[algorithmName],
+                                                  {name: algorithmName},
+                                                  false, ["deriveBits", "deriveKey"]);
+              publicKey = await subtle.importKey("spki", kSmallOrderPoint[algorithmName],
+                                                 {name: algorithmName},
+                                                 false, [])
+              derived = await subtle.deriveKey({name: algorithmName, public: publicKey}, privateKey,
+                                               {name: "HMAC", hash: "SHA-256", length: 256}, true,
+                                               ["sign", "verify"]);
+          } catch (err) {
+              assert_false(privateKey === undefined, "Private key should be valid.");
+              assert_false(publicKey === undefined, "Public key should be valid.");
+              assert_equals(err.name, "OperationError", "Should throw correct error, not " + err.name + ": " + err.message + ".");
+          }
+          assert_equals(derived, undefined, "Operation succeeded, but should not have.");
+      }, algorithmName + " key derivation checks for all-zero value result.");
+  });
+
   return importKeys(pkcs8, spki, sizes)
   .then(function(results) {
       publicKeys = results.publicKeys;
